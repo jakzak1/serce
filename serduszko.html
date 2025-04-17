@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>serduszko</title>
+    <style>
+        * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
+    touch-action: none;
+    position: fixed;
+}
+
+#canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let heartPoints = [];
+        const particles = [];
+        const particleCount = 30;
+        const trailLength = 40;
+        let scaleFactor = 1;
+        let animationId = null;
+        let isPortrait = window.innerHeight > window.innerWidth;
+
+        function init() {
+            setupEventListeners();
+            resize();
+            generateHeart();
+            createParticles();
+            animate();
+        }
+
+        function setupEventListeners() {
+            window.addEventListener('resize', handleResize, { passive: true });
+            window.addEventListener('orientationchange', handleResize, { passive: true });
+        }
+
+        function handleResize() {
+            isPortrait = window.innerHeight > window.innerWidth;
+            cancelAnimationFrame(animationId);
+            resize();
+            generateHeart();
+            createParticles();
+            animate();
+        }
+
+        function resize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            scaleFactor = isMobile ? 
+                Math.min(width, height) / (isPortrait ? 500 : 800) : 
+                Math.min(width, height) / 800;
+        }
+
+        function generateHeart() {
+            heartPoints = [];
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const size = 150 * scaleFactor;
+            
+            for(let i = 0; i < 6.3; i += 0.2) {
+                const x = centerX + size * Math.pow(Math.sin(i), 3);
+                const y = centerY + (size/15) * -(15*Math.cos(i) - 5*Math.cos(2*i) - 2*Math.cos(3*i) - Math.cos(4*i));
+                heartPoints.push([x, y]);
+            }
+        }
+
+        function createParticles() {
+            particles.length = 0;
+            for(let i = 0; i < particleCount; i++) {
+                const trail = [];
+                const hue = 280 + (i/particleCount * 40);
+                
+                for(let j = 0; j < trailLength; j++) {
+                    trail.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        size: (1 - j/trailLength) * 2 * scaleFactor + 0.5,
+                        color: `hsla(${hue}, 80%, ${50 - j}%, ${0.5 + j/trailLength * 0.5})`,
+                        target: Math.floor(Math.random() * heartPoints.length),
+                        speed: Math.random() * 0.2 + 0.1,
+                        direction: i % 2 === 0 ? 1 : -1
+                    });
+                }
+                particles.push(trail);
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            particles.forEach(trail => {
+                const head = trail[0];
+                const target = heartPoints[head.target];
+                
+                const dx = head.x - target[0];
+                const dy = head.y - target[1];
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                
+                if(distance < 15 * scaleFactor) {
+                    if(Math.random() > 0.97) {
+                        head.target = Math.floor(Math.random() * heartPoints.length);
+                    } else {
+                        head.target = (head.target + head.direction) % heartPoints.length;
+                        if(head.target < 0) head.target += heartPoints.length;
+                    }
+                }
+                
+                head.x -= (dx / distance) * head.speed;
+                head.y -= (dy / distance) * head.speed;
+                
+                ctx.fillStyle = head.color;
+                ctx.beginPath();
+                ctx.arc(head.x, head.y, head.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                for(let i = 1; i < trail.length; i++) {
+                    trail[i].x += (trail[i-1].x - trail[i].x) * 0.08;
+                    trail[i].y += (trail[i-1].y - trail[i].y) * 0.08;
+                    
+                    ctx.fillStyle = trail[i].color;
+                    ctx.beginPath();
+                    ctx.arc(trail[i].x, trail[i].y, trail[i].size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            
+            animationId = requestAnimationFrame(animate);
+        }
+
+        
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
